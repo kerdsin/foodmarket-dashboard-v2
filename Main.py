@@ -109,7 +109,56 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
             except Exception as e:
                 st.error(f"เกิดข้อผิดพลาดในการสแกนภาพ: {e}")
 
-        # ดำเนินการส่วน CSV (เช่น เอสพลานาด หรือ ดึงจาก POS โดยตรง)
+            # --- ส่วนประมวลผล CSV แบบล็อคคอลัมน์ และแก้ปัญหาภาษาไทย ---
+    if csv_file:
+        try:
+            # 1. พยายามอ่านไฟล์ด้วย Encoding ภาษาไทยหลายๆ แบบ
+            try:
+                df_csv = pd.read_csv(csv_file, encoding='utf-8')
+            except:
+                csv_file.seek(0) # รีเซ็ตตำแหน่งไฟล์
+                try:
+                    df_csv = pd.read_csv(csv_file, encoding='utf-8-sig')
+                except:
+                    csv_file.seek(0)
+                    df_csv = pd.read_csv(csv_file, encoding='tis-620')
+
+            # เช็คว่ามีคอลัมน์วันที่ตาม Config ไหม
+            date_col = CSV_CONFIG["date_col"]
+            if date_col in df_csv.columns:
+                # 2. กรองข้อมูลเอาเฉพาะวันที่เลือก (แก้บั๊กวันที่ปนกัน)
+                # แปลงคอลัมน์ใน CSV เป็น Date object เพื่อเทียบกับ selected_date 
+                df_csv['parsed_date'] = pd.to_datetime(df_csv[date_col], errors='coerce', dayfirst=True).dt.date
+                df_csv = df_csv[df_csv['parsed_date'] == selected_date]
+            else:
+                st.warning(f"⚠️ ไม่พบคอลัมน์ชื่อ '{date_col}' ในไฟล์ CSV ลองตรวจสอบไฟล์ต้นฉบับดูครับ")
+
+            for _, row in df_csv.iterrows():
+                item_name = str(row.get(CSV_CONFIG["item_col"], 'N/A'))
+                
+                # หารหัสและราคาจาก Item Master เอสพลานาด
+                es_master = master_data.get("เอสพลานาด", {})
+                item_code = "ไม่ระบุ"
+                unit_price = 0
+                for code, info in es_master.items():
+                    if info['name'] == item_name:
+                        item_code = code
+                        unit_price = info['price']
+                        break
+                
+                temp_data.append({
+                    "วันที่": formatted_date, # บังคับใช้วันที่ที่เลือกลงชีต
+                    "สาขา (จาก CSV)": "เอสพลานาด",
+                    "รหัสสินค้า": item_code,
+                    "ชื่อเมนู": item_name,
+                    "ราคา": unit_price,
+                    "จำนวน": row.get(CSV_CONFIG["qty_col"], 0),
+                    "ยอด (฿)": row.get(CSV_CONFIG["amount_col"], 0),
+                    "ตรวจสอบ": "✅ ผ่าน (CSV)"
+                })
+        except Exception as e:
+             st.error(f"เกิดข้อผิดพลาดในการอ่าน CSV: {e}")
+# ดำเนินการส่วน CSV (เช่น เอสพลานาด หรือ ดึงจาก POS โดยตรง)
     if csv_file:
         try:
             # รองรับไฟล์ภาษาไทย
@@ -130,34 +179,7 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
                     })
         except Exception as e:
             st.error(f"❌ เกิดข้อผิดพลาดในการอ่านไฟล์ CSV: {e}")
-# 📝 ประมวลผล CSV (ทำการ Filter ตัดวันที่ไม่เกี่ยวข้องทิ้ง)
-    if csv_file:
-        try:
-            df_csv = pd.read_csv(csv_file)
             
-            # ค้นหาคอลัมน์วันที่ใน CSV
-            date_col = next((col for col in df_csv.columns if 'date' in col.lower() or 'วันที่' in col), None)
-            
-            # กรองข้อมูลเอาเฉพาะวันที่เลือก
-            if date_col:
-                parsed_dates = pd.to_datetime(df_csv[date_col], errors='coerce', dayfirst=True)
-                df_csv = df_csv[parsed_dates.dt.date == selected_date]
-            
-            for _, row in df_csv.iterrows():
-                # ปรับหัวคอลัมน์ 'Item Name', 'Qty', 'Amount' ให้ตรงกับไฟล์ CSV ของคุณสมาร์ท
-                temp_data.append({
-                    "วันที่": formatted_date,
-                    "สาขา": "เอสพลานาด",
-                    "รหัสสินค้า": "CSV-Import",
-                    "ชื่อเมนู": row.get('Item Name', 'N/A'),
-                    "ราคา": 0,
-                    "จำนวน": row.get('Qty', 0),
-                    "ยอด (฿)": row.get('Amount', 0),
-                    "ตรวจสอบ": "✅ CSV"
-                })
-        except Exception as e:
-             st.error(f"เกิดข้อผิดพลาดในการอ่าน CSV: {e}")
-
     # แสดงผล
     if temp_data:
         st.session_state['preview_data'] = temp_data
