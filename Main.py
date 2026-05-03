@@ -26,7 +26,7 @@ def get_google_sheet():
 # --- 🧠 3. สมองกล AI ---
 def analyze_receipts(images, model_version):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    api_model_name = 'gemini-1.5-flash' if model_version == "Flash (เน้นแม่นยำ)" else 'gemini-1.5-flash-8b'
+    api_model_name = 'gemini-2.5-flash' if model_version == "Flash (เน้นแม่นยำ)" else 'gemini-2.5-flash-lite'
     model = genai.GenerativeModel(api_model_name)
     
     prompt = f"""
