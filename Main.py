@@ -5,7 +5,7 @@ import google.generativeai as genai
 from PIL import Image
 import gspread
 from google.oauth2.service_account import Credentials
-import datetime # เพิ่ม Library จัดการวันที่
+import datetime
 
 # --- 🎯 1. CONFIG: ล็อคสาขา และ คอลัมน์ CSV ---
 BRANCH_CONFIG = {
@@ -16,12 +16,11 @@ BRANCH_CONFIG = {
     "990221": "เอสพลานาด"
 }
 
-# ⚠️ แมปปิ้งคอลัมน์ให้ตรงกับไฟล์ CSV ของระบบ POS (ภาษาไทย)
 CSV_CONFIG = {
-    "date_col": "วันที่เปิดบิล",     # ดึงวันที่จากคอลัมน์ 'วันที่เปิดบิล'
-    "item_col": "ชื่อเมนู",          # ดึงชื่อเมนูจากคอลัมน์ 'ชื่อเมนู'
-    "qty_col": "จำนวน",             # ดึงยอดขายจากคอลัมน์ 'จำนวน'
-    "amount_col": "ยอดขายสุทธิ"      # ดึงยอดเงินรวมจากคอลัมน์ 'ยอดขายสุทธิ' (หรือจะใช้ 'รวม' ก็ได้ครับ)
+    "date_col": "วันที่เปิดบิล",
+    "item_col": "ชื่อเมนู",
+    "qty_col": "จำนวน",
+    "amount_col": "ยอดขายสุทธิ"
 }
 
 # --- 🛠️ 2. ระบบเชื่อมต่อ Google Sheets ---
@@ -34,6 +33,7 @@ def get_google_sheet():
 # --- 🧠 3. สมองกล AI ---
 def analyze_receipts(images, model_version):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    # หมายเหตุ: รหัส API ปัจจุบันของ Google คือ 1.5-flash และ 1.5-flash-8b (Lite) เพื่อไม่ให้ระบบล่มครับ
     api_model_name = 'gemini-2.5-flash' if model_version == "Flash (เน้นแม่นยำ)" else 'gemini-2.5-flash-lite'
     model = genai.GenerativeModel(api_model_name)
     
@@ -46,10 +46,9 @@ def analyze_receipts(images, model_version):
     return json.loads(response.text.replace("```json", "").replace("```", "").strip())
 
 # --- 📱 4. หน้าจอผู้ใช้งาน (Mobile Web App) ---
-st.set_page_config(page_title="Power One One-Stop", page_icon="⚡", layout="centered")
+st.set_page_config(page_title="Power One One-Stop", page_icon="⚡", layout="wide")
 st.title("📲 ระบบบันทึกยอดขาย One-Stop")
 
-# โหลด Master Data
 try:
     with open('item_master.json', 'r', encoding='utf-8') as f:
         master_data = json.load(f)
@@ -57,13 +56,9 @@ except Exception:
     st.error("❌ ไม่พบไฟล์ item_master.json")
     master_data = {}
 
-# ---------------------------------------------------------
-# 🆕 ส่วนที่ 1: ตั้งค่าวันที่และ AI (เพิ่มใหม่ตามรีเควส)
-# ---------------------------------------------------------
 st.subheader("📅 1. ตั้งค่าการทำงาน")
 col1, col2 = st.columns(2)
 with col1:
-    # ให้ผู้ใช้เลือกวันที่ก่อนรัน
     selected_date = st.date_input("ระบุวันที่ของยอดขาย:", datetime.date.today())
     formatted_date = selected_date.strftime("%d/%m/%Y")
 with col2:
@@ -72,9 +67,6 @@ with col2:
 st.info(f"💡 ระบบจะล็อคข้อมูลทั้งหมดเป็นวันที่ **{formatted_date}** และตัดวันอื่นใน CSV ทิ้ง")
 st.divider()
 
-# ---------------------------------------------------------
-# ส่วนที่ 2: นำเข้าข้อมูล
-# ---------------------------------------------------------
 st.subheader("📷 2. นำเข้าสลิปและไฟล์")
 files = st.file_uploader("ถ่ายรูปสลิปสาขา", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True)
 csv_file = st.file_uploader("หรืออัปโหลดไฟล์ CSV (เอสพลานาด)", type=['csv'])
@@ -82,7 +74,7 @@ csv_file = st.file_uploader("หรืออัปโหลดไฟล์ CSV (
 if st.button("🚀 สแกนและตรวจสอบข้อมูล", type="primary", use_container_width=True):
     temp_data = []
     
-    # 📝 ประมวลผลรูปภาพ (ล็อควันที่ตามที่เลือก)
+    # 📝 ประมวลผลรูปภาพ
     if files:
         with st.spinner(f"กำลังสแกนด้วยโหมด {ai_choice}..."):
             try:
@@ -97,8 +89,8 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
                     if d.get('qty', 0) > 0:
                         is_valid = match and match['code'] == d['code'] and match['price'] == d['unit_price']
                         temp_data.append({
-                            "วันที่": formatted_date, # บังคับใช้วันที่ที่เลือก
-                            "สาขา": branch,
+                            "วันที่": formatted_date,
+                            "สาขา (จาก CSV)": branch,
                             "รหัสสินค้า": d.get('code', ''),
                             "ชื่อเมนู": match['name'] if match else "⚠️ รหัสไม่ตรง",
                             "ราคา": d.get('unit_price', 0),
@@ -109,83 +101,63 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
             except Exception as e:
                 st.error(f"เกิดข้อผิดพลาดในการสแกนภาพ: {e}")
 
-            # --- ส่วนประมวลผล CSV แบบล็อคคอลัมน์ และแก้ปัญหาภาษาไทย ---
+    # 📝 ประมวลผล CSV (ล้างโค้ดซ้ำซ้อนออก ทำงานรอบเดียวจบ)
     if csv_file:
         try:
-            # 1. พยายามอ่านไฟล์ด้วย Encoding ภาษาไทยหลายๆ แบบ
+            # อ่านไฟล์รอบเดียว
             try:
                 df_csv = pd.read_csv(csv_file, encoding='utf-8')
             except:
-                csv_file.seek(0) # รีเซ็ตตำแหน่งไฟล์
+                csv_file.seek(0)
                 try:
                     df_csv = pd.read_csv(csv_file, encoding='utf-8-sig')
                 except:
                     csv_file.seek(0)
                     df_csv = pd.read_csv(csv_file, encoding='tis-620')
 
-            # เช็คว่ามีคอลัมน์วันที่ตาม Config ไหม
             date_col = CSV_CONFIG["date_col"]
             if date_col in df_csv.columns:
-                # 2. กรองข้อมูลเอาเฉพาะวันที่เลือก (แก้บั๊กวันที่ปนกัน)
-                # แปลงคอลัมน์ใน CSV เป็น Date object เพื่อเทียบกับ selected_date 
-                df_csv['parsed_date'] = pd.to_datetime(df_csv[date_col], errors='coerce', dayfirst=True).dt.date
+                # แปลงวันที่เพื่อเปรียบเทียบ
+                df_csv['parsed_date'] = pd.to_datetime(df_csv[date_col], format="%d/%m/%Y", errors='coerce').dt.date
+                if df_csv['parsed_date'].isnull().all():
+                    df_csv['parsed_date'] = pd.to_datetime(df_csv[date_col], errors='coerce', dayfirst=True).dt.date
+                
+                # กรองเอาเฉพาะวันที่เลือก
                 df_csv = df_csv[df_csv['parsed_date'] == selected_date]
             else:
-                st.warning(f"⚠️ ไม่พบคอลัมน์ชื่อ '{date_col}' ในไฟล์ CSV ลองตรวจสอบไฟล์ต้นฉบับดูครับ")
+                st.warning(f"⚠️ ไม่พบคอลัมน์ '{date_col}'")
 
             for _, row in df_csv.iterrows():
-                item_name = str(row.get(CSV_CONFIG["item_col"], 'N/A'))
+                qty = float(row.get(CSV_CONFIG["qty_col"], 0))
                 
-                # หารหัสและราคาจาก Item Master เอสพลานาด
-                es_master = master_data.get("เอสพลานาด", {})
-                item_code = "ไม่ระบุ"
-                unit_price = 0
-                for code, info in es_master.items():
-                    if info['name'] == item_name:
-                        item_code = code
-                        unit_price = info['price']
-                        break
-                
-                temp_data.append({
-                    "วันที่": formatted_date, # บังคับใช้วันที่ที่เลือกลงชีต
-                    "สาขา (จาก CSV)": "เอสพลานาด",
-                    "รหัสสินค้า": item_code,
-                    "ชื่อเมนู": item_name,
-                    "ราคา": unit_price,
-                    "จำนวน": row.get(CSV_CONFIG["qty_col"], 0),
-                    "ยอด (฿)": row.get(CSV_CONFIG["amount_col"], 0),
-                    "ตรวจสอบ": "✅ ผ่าน (CSV)"
-                })
-        except Exception as e:
-             st.error(f"เกิดข้อผิดพลาดในการอ่าน CSV: {e}")
-# ดำเนินการส่วน CSV (เช่น เอสพลานาด หรือ ดึงจาก POS โดยตรง)
-    if csv_file:
-        try:
-            # รองรับไฟล์ภาษาไทย
-            df_csv = pd.read_csv(csv_file) 
-            
-            for _, row in df_csv.iterrows():
-                # กรองเฉพาะรายการที่มีการขายจริง
-                if pd.notna(row.get('จำนวน')) and float(row.get('จำนวน', 0)) > 0:
+                # เอาเฉพาะรายการที่ขายได้จริงๆ (>0)
+                if pd.notna(qty) and qty > 0:
+                    item_name = str(row.get(CSV_CONFIG["item_col"], 'ไม่ระบุชื่อ'))
+                    
+                    # 💡 แก้ปัญหารหัสไม่ขึ้น: ดึงจากคอลัมน์ใน CSV มาใส่ตรงๆ เลย
+                    item_code = str(row.get('รหัสเมนู', 'ไม่ระบุ'))
+                    unit_price = float(row.get('ราคาต่อหน่วย', 0))
+                    amount = float(row.get(CSV_CONFIG["amount_col"], row.get('ยอดขาย', 0)))
+
                     temp_data.append({
-                        "วันที่": row.get('วันที่เช็คบิล', pd.Timestamp.now().strftime("%d/%m/%Y")),
-                        "สาขา": row.get('สาขา', 'CSV-Import'),
-                        "รหัสสินค้า": str(row.get('รหัสเมนู', '')),
-                        "ชื่อเมนู": str(row.get('ชื่อเมนู', 'ไม่ระบุชื่อ')),
-                        "ราคา": float(row.get('ราคาต่อหน่วย', 0)),
-                        "จำนวน": float(row.get('จำนวน', 0)),
-                        "ยอด (฿)": float(row.get('ยอดขาย', 0)),
-                        "ตรวจสอบ": "✅ CSV Auto"
+                        "วันที่": formatted_date,
+                        "สาขา (จาก CSV)": str(row.get('สาขา', 'เอสพลานาด')),
+                        "รหัสสินค้า": item_code,
+                        "ชื่อเมนู": item_name,
+                        "ราคา": unit_price,
+                        "จำนวน": qty,
+                        "ยอด (฿)": amount,
+                        "ตรวจสอบ": "✅ ผ่าน (CSV)"
                     })
         except Exception as e:
-            st.error(f"❌ เกิดข้อผิดพลาดในการอ่านไฟล์ CSV: {e}")
-            
+             st.error(f"❌ เกิดข้อผิดพลาดในการอ่าน CSV: {e}")
+
     # แสดงผล
     if temp_data:
         st.session_state['preview_data'] = temp_data
         st.success(f"สแกนสำเร็จ! พบข้อมูลที่ตรงกับวันที่ {formatted_date} จำนวน {len(temp_data)} รายการ")
     elif csv_file or files:
-        st.warning(f"⚠️ ไม่พบข้อมูลของวันที่ {formatted_date} กรุณาตรวจสอบไฟล์หรือสลิปอีกครั้ง")
+        st.warning(f"⚠️ ไม่พบข้อมูลของวันที่ {formatted_date}")
 
 # --- 📋 5. ยืนยันข้อมูลก่อนลง Sheet ---
 if 'preview_data' in st.session_state and st.session_state['preview_data']:
