@@ -101,7 +101,28 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
             except Exception as e:
                 st.error(f"เกิดข้อผิดพลาดในการสแกนภาพ: {e}")
 
-    # 📝 ประมวลผล CSV (ทำการ Filter ตัดวันที่ไม่เกี่ยวข้องทิ้ง)
+        # ดำเนินการส่วน CSV (เช่น เอสพลานาด หรือ ดึงจาก POS โดยตรง)
+    if csv_file:
+        try:
+            # รองรับไฟล์ภาษาไทย
+            df_csv = pd.read_csv(csv_file) 
+            
+            for _, row in df_csv.iterrows():
+                # กรองเฉพาะรายการที่มีการขายจริง
+                if pd.notna(row.get('จำนวน')) and float(row.get('จำนวน', 0)) > 0:
+                    temp_data.append({
+                        "วันที่": row.get('วันที่เช็คบิล', pd.Timestamp.now().strftime("%d/%m/%Y")),
+                        "สาขา": row.get('สาขา', 'CSV-Import'),
+                        "รหัสสินค้า": str(row.get('รหัสเมนู', '')),
+                        "ชื่อเมนู": str(row.get('ชื่อเมนู', 'ไม่ระบุชื่อ')),
+                        "ราคา": float(row.get('ราคาต่อหน่วย', 0)),
+                        "จำนวน": float(row.get('จำนวน', 0)),
+                        "ยอด (฿)": float(row.get('ยอดขาย', 0)),
+                        "ตรวจสอบ": "✅ CSV Auto"
+                    })
+        except Exception as e:
+            st.error(f"❌ เกิดข้อผิดพลาดในการอ่านไฟล์ CSV: {e}")
+# 📝 ประมวลผล CSV (ทำการ Filter ตัดวันที่ไม่เกี่ยวข้องทิ้ง)
     if csv_file:
         try:
             df_csv = pd.read_csv(csv_file)
