@@ -28,7 +28,8 @@ CSV_CONFIG = {
 def get_google_sheet():
     creds_info = json.loads(st.secrets["GCP_SERVICE_ACCOUNT"])
     creds = Credentials.from_service_account_info(creds_info, scopes=["https://www.googleapis.com/auth/spreadsheets"])
-    return gspread.authorize(creds).open_by_key(st.secrets["SHEET_ID"]).sheet1
+    # ⚠️ สั่งให้วิ่งไปหาแท็บที่ชื่อ "Data" ตรงๆ
+    return gspread.authorize(creds).open_by_key(st.secrets["SHEET_ID"]).worksheet("Data")
 
 # --- 🧠 3. สมองกล AI ---
 def analyze_receipts(images, model_version):
