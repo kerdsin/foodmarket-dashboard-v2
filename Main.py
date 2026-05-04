@@ -161,9 +161,12 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
                     unit_price = float(row.get('ราคาต่อหน่วย', 0))
                     amount = float(row.get(CSV_CONFIG["amount_col"], row.get('ยอดขาย', 0)))
 
-                    # ⚠️ เพิ่มโค้ดบรรทัดนี้: แปลงชื่อข้าวมันไก่สยาม เป็น เอสพลานาด
-                    raw_branch = str(row.get('สาขา', 'เอสพลานาด')).strip()
-                    mapped_branch = "เอสพลานาด" if raw_branch == "ข้าวมันไก่สยาม" else raw_branch
+                    # ⚠️ แก้ไขจุดนี้: ใช้คำว่า "in" เพื่อดักจับคำว่า "สยาม" ไม่ว่าจะพิมพ์มาแบบไหนหรือมีเว้นวรรคซ่อนอยู่
+                    raw_branch = str(row.get('สาขา', 'เอสพลานาด'))
+                    if "สยาม" in raw_branch or "ข้าวมันไก่สยาม" in raw_branch:
+                        mapped_branch = "เอสพลานาด"
+                    else:
+                        mapped_branch = raw_branch.strip()
                     
                     temp_data.append({
                         "วันที่": formatted_date_for_sheet,
