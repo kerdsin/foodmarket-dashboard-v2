@@ -48,21 +48,18 @@ def analyze_receipts(images, model_version):
     api_model_name = 'gemini-2.5-flash' if model_version == "Flash (เน้นแม่นยำ)" else 'gemini-2.5-flash-lite'
     model = genai.GenerativeModel(api_model_name)
     
-    # ⚠️ เปลี่ยนให้ AI ดึงแค่ ราคา (Unit_Price) และ ยอดรวม (Total_Amount)
+    # ⚠️ ให้ AI อ่านแค่ "เลขลำดับ" และ "ยอดรวม" แล้วเราจะไปดึงข้อมูลที่เหลือจาก item_master.json เอง
     prompt = f"""
     Find VID number in the receipt header. Valid VIDs: {list(BRANCH_CONFIG.keys())}
-    Extract for each item line: Line_Number, Item_Code, Unit_Price, and Total_Amount.
+    This is a daily Settlement Report. Items are printed sequentially.
     
-    The receipt lines ALWAYS follow this exact structure in 2 rows:
-    Row 1: [Line Number]. [Item Name]
-    Row 2: [Item Code]   [Unit Price]   [Quantity]   [Total Amount]
+    Look at this example structure on the receipt:
+    4. ข้าวมันเปล่า
+    FMFC033-006  15  1  15.00
+    Here, Line_Number is "4" and Total_Amount is 15.00 (the very last number).
     
-    Example:
-    1. ข้าวมันไก่ต้ม
-    FMFC033-001  60  77 4,620.00
-    -> Your extraction: line_no: "1", code: "FMFC033-001", unit_price: 60.0, total_amount: 4620.0
-    
-    Return ONLY JSON list: [{{"vid": "str", "line_no": "str", "code": "str", "unit_price": float, "total_amount": float}}]
+    Extract the Line_Number and Total_Amount ONLY for items where Total_Amount > 0.
+    Return ONLY JSON list: [{{"vid": "str", "line_no": "str", "total_amount": float}}]
     """
     response = model.generate_content([prompt] + images)
     return json.loads(response.text.replace("```json", "").replace("```", "").strip())
@@ -108,7 +105,7 @@ csv_file = st.file_uploader("หรืออัปโหลดไฟล์ CSV (
 if st.button("🚀 สแกนและตรวจสอบข้อมูล", type="primary", use_container_width=True):
     temp_data = []
   
-     # 📝 ประมวลผลรูปภาพ
+    # 📝 ประมวลผลรูปภาพ
     if files:
         with st.spinner(f"กำลังสแกนด้วยโหมด {ai_choice}..."):
             try:
@@ -118,31 +115,40 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
                 for d in ai_results:
                     branch = BRANCH_CONFIG.get(d.get('vid'), "ไม่ทราบสาขา")
                     line = str(d.get('line_no'))
-                    branch_items = master_data.get(branch, {})
-                    match = branch_items.get(line)
-                    if not match and d.get('code'):
-                        match = next((item for item in branch_items.values() if item.get('code') == d['code']), None)
-                    
-                    # 💡 ดึงราคา และ ยอดรวมมา เพื่อคำนวณหาจำนวน (Qty) เอง
-                    unit_price = float(d.get('unit_price', 0))
                     total_amount = float(d.get('total_amount', 0))
                     
-                    calculated_qty = 0
-                    if unit_price > 0:
-                        calculated_qty = round(total_amount / unit_price)
-                    
-                    if calculated_qty > 0:
-                        is_valid = match and match['code'] == d['code'] and match['price'] == unit_price
-                        temp_data.append({
-                            "วันที่": formatted_date_for_sheet,
-                            "สาขา (จาก CSV)": branch,
-                            "รหัสสินค้า": d.get('code', ''),
-                            "ชื่อเมนู": match['name'] if match else "⚠️ รหัสไม่ตรง",
-                            "ราคา": unit_price,
-                            "จำนวน": int(calculated_qty),
-                            "ยอด (฿)": total_amount,
-                            "ตรวจสอบ": "✅ ผ่าน" if is_valid else "❌ ขัดข้อง"
-                        })
+                    if total_amount > 0:
+                        branch_items = master_data.get(branch, {})
+                        # 💡 ดึงข้อมูลเมนูจากไฟล์ Master โดยใช้ "เลขลำดับ"
+                        match = branch_items.get(line)
+                        
+                        if match:
+                            unit_price = float(match['price'])
+                            # คำนวณจำนวนชิ้นที่ขายได้ = ยอดรวม / ราคา
+                            calculated_qty = round(total_amount / unit_price) if unit_price > 0 else 0
+                            
+                            temp_data.append({
+                                "วันที่": formatted_date_for_sheet,
+                                "สาขา (จาก CSV)": branch,
+                                "รหัสสินค้า": match['code'],
+                                "ชื่อเมนู": match['name'],
+                                "ราคา": unit_price,
+                                "จำนวน": int(calculated_qty),
+                                "ยอด (฿)": total_amount,
+                                "ตรวจสอบ": "✅ ผ่าน"
+                            })
+                        else:
+                            # กรณี AI อ่านเลขลำดับผิด หรือไม่มีลำดับนี้ใน Master File
+                            temp_data.append({
+                                "วันที่": formatted_date_for_sheet,
+                                "สาขา (จาก CSV)": branch,
+                                "รหัสสินค้า": "-",
+                                "ชื่อเมนู": f"⚠️ ไม่พบเมนูลำดับที่ {line}",
+                                "ราคา": 0,
+                                "จำนวน": 0,
+                                "ยอด (฿)": total_amount,
+                                "ตรวจสอบ": "❌ ขัดข้อง"
+                            })
             except Exception as e:
                 st.error(f"เกิดข้อผิดพลาดในการสแกนภาพ: {e}")
                     
