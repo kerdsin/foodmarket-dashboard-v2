@@ -41,18 +41,17 @@ def clean_for_sheets(value):
         return ""
     return value
     
-# --- 🧠 3. สมองกล AI ---
+    # --- 🧠 3. สมองกล AI ---
 def analyze_receipts(images, model_version):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     
-    # ⚠️ ใช้งาน Gemini 2.5 เต็มรูปแบบ
     api_model_name = 'gemini-2.5-flash' if model_version == "Flash (เน้นแม่นยำ)" else 'gemini-2.5-flash-lite'
     model = genai.GenerativeModel(api_model_name)
     
-    # ⚠️ ท่าไม้ตาย: ยกตัวอย่างให้ AI ดูเลยว่าต้องดึงยังไง จะได้ไม่สลับ ราคา กับ จำนวน อีก
+    # ⚠️ เปลี่ยนให้ AI ดึงแค่ ราคา (Unit_Price) และ ยอดรวม (Total_Amount)
     prompt = f"""
     Find VID number in the receipt header. Valid VIDs: {list(BRANCH_CONFIG.keys())}
-    Extract for each item line: Line_Number, Item_Code, Qty, and Unit_Price.
+    Extract for each item line: Line_Number, Item_Code, Unit_Price, and Total_Amount.
     
     The receipt lines ALWAYS follow this exact structure in 2 rows:
     Row 1: [Line Number]. [Item Name]
@@ -61,13 +60,9 @@ def analyze_receipts(images, model_version):
     Example:
     1. ข้าวมันไก่ต้ม
     FMFC033-001  60  77 4,620.00
-    -> Your extraction: line_no: "1", code: "FMFC033-001", unit_price: 60.0, qty: 77
+    -> Your extraction: line_no: "1", code: "FMFC033-001", unit_price: 60.0, total_amount: 4620.0
     
-    2. ข้าวมันไก่ทอด
-    FMFC033-002  60  33 1,980.00
-    -> Your extraction: line_no: "2", code: "FMFC033-002", unit_price: 60.0, qty: 33
-    
-    Return ONLY JSON list: [{{"vid": "str", "line_no": "str", "code": "str", "qty": int, "unit_price": float}}]
+    Return ONLY JSON list: [{{"vid": "str", "line_no": "str", "code": "str", "unit_price": float, "total_amount": float}}]
     """
     response = model.generate_content([prompt] + images)
     return json.loads(response.text.replace("```json", "").replace("```", "").strip())
