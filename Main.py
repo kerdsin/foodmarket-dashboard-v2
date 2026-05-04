@@ -161,7 +161,7 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
                     unit_price = float(row.get('ราคาต่อหน่วย', 0))
                     amount = float(row.get(CSV_CONFIG["amount_col"], row.get('ยอดขาย', 0)))
 
-                    # ⚠️ แก้ไขจุดนี้: ใช้คำว่า "in" เพื่อดักจับคำว่า "สยาม" ไม่ว่าจะพิมพ์มาแบบไหนหรือมีเว้นวรรคซ่อนอยู่
+                    # ⚠️ ตรวจจับคำว่า "สยาม" และแปลงเป็น "เอสพลานาด"
                     raw_branch = str(row.get('สาขา', 'เอสพลานาด'))
                     if "สยาม" in raw_branch or "ข้าวมันไก่สยาม" in raw_branch:
                         mapped_branch = "เอสพลานาด"
@@ -170,7 +170,7 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
                     
                     temp_data.append({
                         "วันที่": formatted_date_for_sheet,
-                        "สาขา (จาก CSV)": str(row.get('สาขา', 'เอสพลานาด')),
+                        "สาขา (จาก CSV)": mapped_branch, # ⚠️ แก้จุดนี้ให้ใช้ตัวแปร mapped_branch
                         "รหัสสินค้า": item_code,
                         "ชื่อเมนู": item_name,
                         "ราคา": unit_price,
