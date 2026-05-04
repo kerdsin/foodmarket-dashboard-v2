@@ -40,35 +40,27 @@ def clean_for_sheets(value):
     if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
         return ""
     return value
-    
-    # --- 🧠 3. สมองกล AI ---
+
+# --- 🧠 3. สมองกล AI ---
 def analyze_receipts(images, model_version):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    
     api_model_name = 'gemini-2.5-flash' if model_version == "Flash (เน้นแม่นยำ)" else 'gemini-2.5-flash-lite'
     model = genai.GenerativeModel(api_model_name)
-    
-    # ⚠️ ดึงข้อมูลครบ 4 ตัว (รหัส, ราคา, จำนวน, ยอดรวม) เพื่อเอามาครอสเช็คกัน
     prompt = f"""
     Find VID number in the receipt header. Valid VIDs: {list(BRANCH_CONFIG.keys())}
     Extract for each item line where Total_Amount > 0.
-    
+
     The receipt lines ALWAYS follow this exact structure in 2 rows:
     Row 1: [Line Number]. [Item Name]
     Row 2: [Item Code]   [Unit Price]   [Quantity]   [Total Amount]
-    
-    Example Extraction:
-    If you see:
+
+    Example:
     2. ข้าวมันไก่ทอด
     FMFC033-002  60  33 1,980.00
-    
-    Return: code: "FMFC033-002", unit_price: 60.0, qty: 33, total_amount: 1980.0
-    
+    → code: "FMFC033-002", unit_price: 60.0, qty: 33, total_amount: 1980.0
+
     Return ONLY JSON list: [{{"vid": "str", "code": "str", "unit_price": float, "qty": int, "total_amount": float}}]
     """
-    response = model.generate_content([prompt] + images)
-    return json.loads(response.text.replace("```json", "").replace("```", "").strip())
-
     for attempt in range(3):
         try:
             response = model.generate_content([prompt] + images)
@@ -246,6 +238,21 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
 if 'preview_data' in st.session_state and st.session_state['preview_data']:
     df_preview = pd.DataFrame(st.session_state['preview_data'])
     df_edited = st.data_editor(df_preview, use_container_width=True)
+
+    # สรุปยอดขายแต่ละสาขา (แสดงเพื่อตรวจสอบ ไม่ส่งขึ้น Sheet)
+    st.subheader("📊 สรุปยอดขายตามสาขา")
+    df_summary = (
+        df_edited
+        .groupby("สาขา (จาก CSV)", as_index=False)
+        .agg(จำนวนรายการ=("ชื่อเมนู", "count"), ยอดรวม_บาท=("ยอด (฿)", "sum"))
+        .rename(columns={"สาขา (จาก CSV)": "สาขา", "ยอดรวม_บาท": "ยอดรวม (฿)"})
+        .sort_values("สาขา")
+    )
+    df_summary["ยอดรวม (฿)"] = df_summary["ยอดรวม (฿)"].map("{:,.2f}".format)
+    total_all = df_edited["ยอด (฿)"].sum()
+    st.dataframe(df_summary, use_container_width=True, hide_index=True)
+    st.metric("ยอดรวมทั้งหมด", f"฿{total_all:,.2f}")
+    st.divider()
 
     if st.button("✅ ยืนยันและบันทึกลง Google Sheets", type="primary", use_container_width=True):
         try:
