@@ -107,8 +107,8 @@ csv_file = st.file_uploader("หรืออัปโหลดไฟล์ CSV (
 
 if st.button("🚀 สแกนและตรวจสอบข้อมูล", type="primary", use_container_width=True):
     temp_data = []
-    
-    # 📝 ประมวลผลรูปภาพ
+  
+     # 📝 ประมวลผลรูปภาพ
     if files:
         with st.spinner(f"กำลังสแกนด้วยโหมด {ai_choice}..."):
             try:
@@ -123,23 +123,29 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
                     if not match and d.get('code'):
                         match = next((item for item in branch_items.values() if item.get('code') == d['code']), None)
                     
-                    if d.get('qty', 0) > 0:
-                        price = match['price'] if match else float(d.get('unit_price', 0))
-                        qty = int(d.get('qty', 0))
-                        is_valid = match is not None
+                    # 💡 ดึงราคา และ ยอดรวมมา เพื่อคำนวณหาจำนวน (Qty) เอง
+                    unit_price = float(d.get('unit_price', 0))
+                    total_amount = float(d.get('total_amount', 0))
+                    
+                    calculated_qty = 0
+                    if unit_price > 0:
+                        calculated_qty = round(total_amount / unit_price)
+                    
+                    if calculated_qty > 0:
+                        is_valid = match and match['code'] == d['code'] and match['price'] == unit_price
                         temp_data.append({
                             "วันที่": formatted_date_for_sheet,
                             "สาขา (จาก CSV)": branch,
                             "รหัสสินค้า": d.get('code', ''),
                             "ชื่อเมนู": match['name'] if match else "⚠️ รหัสไม่ตรง",
-                            "ราคา": price,
-                            "จำนวน": qty,
-                            "ยอด (฿)": float(price * qty),
+                            "ราคา": unit_price,
+                            "จำนวน": int(calculated_qty),
+                            "ยอด (฿)": total_amount,
                             "ตรวจสอบ": "✅ ผ่าน" if is_valid else "❌ ขัดข้อง"
                         })
             except Exception as e:
                 st.error(f"เกิดข้อผิดพลาดในการสแกนภาพ: {e}")
-
+                    
     # 📝 ประมวลผล CSV
     if csv_file:
         try:
