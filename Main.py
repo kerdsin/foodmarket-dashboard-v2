@@ -34,7 +34,8 @@ def get_google_sheet():
 # --- 🧠 3. สมองกล AI ---
 def analyze_receipts(images, model_version):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # หมายเหตุ: รหัส API ปัจจุบันของ Google คือ 1.5-flash และ 1.5-flash-8b (Lite) เพื่อไม่ให้ระบบล่มครับ
+    
+    # ⚠️ ใช้งาน Gemini 2.5 เต็มรูปแบบ
     api_model_name = 'gemini-2.5-flash' if model_version == "Flash (เน้นแม่นยำ)" else 'gemini-2.5-flash-lite'
     model = genai.GenerativeModel(api_model_name)
     
@@ -61,11 +62,12 @@ st.subheader("📅 1. ตั้งค่าการทำงาน")
 col1, col2 = st.columns(2)
 with col1:
     selected_date = st.date_input("ระบุวันที่ของยอดขาย:", datetime.date.today())
-    formatted_date = selected_date.strftime("%d/%m/%Y")
+    # ⚠️ ปรับ format วันที่ขาออกให้ Google sheets เอาไปคำนวณง่ายที่สุด
+    formatted_date_for_sheet = selected_date.strftime("%Y-%m-%d") 
 with col2:
     ai_choice = st.radio("🤖 เลือกขุมพลัง AI:", ["Flash (เน้นแม่นยำ)", "Flash Lite (เน้นความเร็ว)"])
 
-st.info(f"💡 ระบบจะล็อคข้อมูลทั้งหมดเป็นวันที่ **{formatted_date}** และตัดวันอื่นใน CSV ทิ้ง")
+st.info(f"💡 ระบบจะล็อคข้อมูลทั้งหมดเป็นวันที่ **{selected_date.strftime('%d/%m/%Y')}** และตัดวันอื่นใน CSV ทิ้ง")
 st.divider()
 
 st.subheader("📷 2. นำเข้าสลิปและไฟล์")
@@ -90,19 +92,19 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
                     if d.get('qty', 0) > 0:
                         is_valid = match and match['code'] == d['code'] and match['price'] == d['unit_price']
                         temp_data.append({
-                            "วันที่": formatted_date,
+                            "วันที่": formatted_date_for_sheet,
                             "สาขา (จาก CSV)": branch,
                             "รหัสสินค้า": d.get('code', ''),
                             "ชื่อเมนู": match['name'] if match else "⚠️ รหัสไม่ตรง",
-                            "ราคา": d.get('unit_price', 0),
-                            "จำนวน": d.get('qty', 0),
-                            "ยอด (฿)": d.get('qty', 0) * d.get('unit_price', 0),
+                            "ราคา": float(d.get('unit_price', 0)),
+                            "จำนวน": int(d.get('qty', 0)),
+                            "ยอด (฿)": float(d.get('qty', 0) * d.get('unit_price', 0)),
                             "ตรวจสอบ": "✅ ผ่าน" if is_valid else "❌ ขัดข้อง"
                         })
             except Exception as e:
                 st.error(f"เกิดข้อผิดพลาดในการสแกนภาพ: {e}")
 
-    # 📝 ประมวลผล CSV (ล้างโค้ดซ้ำซ้อนออก ทำงานรอบเดียวจบ)
+    # 📝 ประมวลผล CSV
     if csv_file:
         try:
             # อ่านไฟล์รอบเดียว
@@ -118,11 +120,16 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
 
             date_col = CSV_CONFIG["date_col"]
             if date_col in df_csv.columns:
-                # แปลงวันที่เพื่อเปรียบเทียบ
-                df_csv['parsed_date'] = pd.to_datetime(df_csv[date_col], format="%d/%m/%Y", errors='coerce').dt.date
-                if df_csv['parsed_date'].isnull().all():
-                    df_csv['parsed_date'] = pd.to_datetime(df_csv[date_col], errors='coerce', dayfirst=True).dt.date
-                
+                # ฟังก์ชันแปลงวันที่แบบครอบจักรวาล
+                def parse_date(x):
+                    try:
+                        if str(x).replace('.','',1).isdigit(): # แก้เคสเลข Excel 46027
+                            return pd.to_datetime('1899-12-30') + pd.to_timedelta(float(x), 'D')
+                        return pd.to_datetime(x, dayfirst=True)
+                    except:
+                        return pd.NaT
+
+                df_csv['parsed_date'] = df_csv[date_col].apply(parse_date).dt.date
                 # กรองเอาเฉพาะวันที่เลือก
                 df_csv = df_csv[df_csv['parsed_date'] == selected_date]
             else:
@@ -133,15 +140,17 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
                 
                 # เอาเฉพาะรายการที่ขายได้จริงๆ (>0)
                 if pd.notna(qty) and qty > 0:
-                    item_name = str(row.get(CSV_CONFIG["item_col"], 'ไม่ระบุชื่อ'))
                     
-                    # 💡 แก้ปัญหารหัสไม่ขึ้น: ดึงจากคอลัมน์ใน CSV มาใส่ตรงๆ เลย
+                    # 💡 ตัดวงเล็บและช่องว่างทิ้ง
+                    raw_item_name = str(row.get(CSV_CONFIG["item_col"], 'ไม่ระบุชื่อ'))
+                    item_name = raw_item_name.split('(')[0].strip()
+                    
                     item_code = str(row.get('รหัสเมนู', 'ไม่ระบุ'))
                     unit_price = float(row.get('ราคาต่อหน่วย', 0))
                     amount = float(row.get(CSV_CONFIG["amount_col"], row.get('ยอดขาย', 0)))
 
                     temp_data.append({
-                        "วันที่": formatted_date,
+                        "วันที่": formatted_date_for_sheet,
                         "สาขา (จาก CSV)": str(row.get('สาขา', 'เอสพลานาด')),
                         "รหัสสินค้า": item_code,
                         "ชื่อเมนู": item_name,
@@ -156,9 +165,9 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
     # แสดงผล
     if temp_data:
         st.session_state['preview_data'] = temp_data
-        st.success(f"สแกนสำเร็จ! พบข้อมูลที่ตรงกับวันที่ {formatted_date} จำนวน {len(temp_data)} รายการ")
+        st.success(f"สแกนสำเร็จ! พบข้อมูลที่ตรงกับวันที่ {selected_date.strftime('%d/%m/%Y')} จำนวน {len(temp_data)} รายการ")
     elif csv_file or files:
-        st.warning(f"⚠️ ไม่พบข้อมูลของวันที่ {formatted_date}")
+        st.warning(f"⚠️ ไม่พบข้อมูลของวันที่ {selected_date.strftime('%d/%m/%Y')}")
 
 # --- 📋 5. ยืนยันข้อมูลก่อนลง Sheet ---
 if 'preview_data' in st.session_state and st.session_state['preview_data']:
@@ -169,7 +178,13 @@ if 'preview_data' in st.session_state and st.session_state['preview_data']:
         try:
             sheet = get_google_sheet()
             data_to_save = df_preview.drop(columns=['ตรวจสอบ']).values.tolist()
-            sheet.append_rows(data_to_save)
+            
+            # 💡 เพิ่มคอลัมน์ว่าง 2 ช่องต่อท้าย (สำหรับ 📅 วันที่_Excel และ 🏪 สาขา_TH)
+            for row in data_to_save:
+                row.extend(["", ""]) 
+                
+            # 💡 ใส่ USER_ENTERED เพื่อให้ Google Sheets มองเป็นตัวเลขจริงๆ ไม่ใช่แค่ตัวหนังสือ
+            sheet.append_rows(data_to_save, value_input_option="USER_ENTERED")
             
             st.success("🎉 บันทึกข้อมูลสำเร็จ! ยอดขายวิ่งเข้าชีตเรียบร้อย")
             st.balloons()
