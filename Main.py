@@ -48,18 +48,23 @@ def analyze_receipts(images, model_version):
     api_model_name = 'gemini-2.5-flash' if model_version == "Flash (เน้นแม่นยำ)" else 'gemini-2.5-flash-lite'
     model = genai.GenerativeModel(api_model_name)
     
-    # ⚠️ ให้ AI อ่านแค่ "เลขลำดับ" และ "ยอดรวม" แล้วเราจะไปดึงข้อมูลที่เหลือจาก item_master.json เอง
+    # ⚠️ ดึงข้อมูลครบ 4 ตัว (รหัส, ราคา, จำนวน, ยอดรวม) เพื่อเอามาครอสเช็คกัน
     prompt = f"""
     Find VID number in the receipt header. Valid VIDs: {list(BRANCH_CONFIG.keys())}
-    This is a daily Settlement Report. Items are printed sequentially.
+    Extract for each item line where Total_Amount > 0.
     
-    Look at this example structure on the receipt:
-    4. ข้าวมันเปล่า
-    FMFC033-006  15  1  15.00
-    Here, Line_Number is "4" and Total_Amount is 15.00 (the very last number).
+    The receipt lines ALWAYS follow this exact structure in 2 rows:
+    Row 1: [Line Number]. [Item Name]
+    Row 2: [Item Code]   [Unit Price]   [Quantity]   [Total Amount]
     
-    Extract the Line_Number and Total_Amount ONLY for items where Total_Amount > 0.
-    Return ONLY JSON list: [{{"vid": "str", "line_no": "str", "total_amount": float}}]
+    Example Extraction:
+    If you see:
+    2. ข้าวมันไก่ทอด
+    FMFC033-002  60  33 1,980.00
+    
+    Return: code: "FMFC033-002", unit_price: 60.0, qty: 33, total_amount: 1980.0
+    
+    Return ONLY JSON list: [{{"vid": "str", "code": "str", "unit_price": float, "qty": int, "total_amount": float}}]
     """
     response = model.generate_content([prompt] + images)
     return json.loads(response.text.replace("```json", "").replace("```", "").strip())
@@ -114,39 +119,52 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
                 
                 for d in ai_results:
                     branch = BRANCH_CONFIG.get(d.get('vid'), "ไม่ทราบสาขา")
-                    line = str(d.get('line_no'))
-                    total_amount = float(d.get('total_amount', 0))
+                    extracted_code = str(d.get('code', '')).strip()
+                    ai_unit_price = float(d.get('unit_price', 0))
+                    ai_qty = int(d.get('qty', 0))
+                    ai_total = float(d.get('total_amount', 0))
                     
-                    if total_amount > 0:
+                    if ai_total > 0:
                         branch_items = master_data.get(branch, {})
-                        # 💡 ดึงข้อมูลเมนูจากไฟล์ Master โดยใช้ "เลขลำดับ"
-                        match = branch_items.get(line)
+                        # 💡 หาเมนูจาก "รหัสสินค้า" ที่ AI อ่านได้
+                        match = next((item for item in branch_items.values() if item.get('code') == extracted_code), None)
                         
                         if match:
-                            unit_price = float(match['price'])
-                            # คำนวณจำนวนชิ้นที่ขายได้ = ยอดรวม / ราคา
-                            calculated_qty = round(total_amount / unit_price) if unit_price > 0 else 0
+                            db_price = float(match['price'])
                             
-                            temp_data.append({
-                                "วันที่": formatted_date_for_sheet,
-                                "สาขา (จาก CSV)": branch,
-                                "รหัสสินค้า": match['code'],
-                                "ชื่อเมนู": match['name'],
-                                "ราคา": unit_price,
-                                "จำนวน": int(calculated_qty),
-                                "ยอด (฿)": total_amount,
-                                "ตรวจสอบ": "✅ ผ่าน"
-                            })
+                            # 💡 ลอจิกตรวจสอบความถูกต้อง: จำนวน x ราคา = ยอดรวม หรือไม่?
+                            # ถ้า AI อ่านมาเป๊ะ (ราคาตรง Database และคูณกันได้ยอดรวมพอดี)
+                            if (ai_unit_price == db_price) and (ai_qty * ai_unit_price == ai_total):
+                                final_qty = ai_qty
+                                final_total = ai_total
+                                status = "✅ ผ่าน"
+                            else:
+                                # ⚠️ ถ้าไม่ตรง ให้เชื่อ "ยอดรวม (Total)" เป็นหลัก แล้วหารด้วยราคา Database
+                                final_qty = round(ai_total / db_price) if db_price > 0 else 0
+                                final_total = ai_total
+                                status = "⚠️ ปรับยอดจาก Total"
+                            
+                            if final_qty > 0:
+                                temp_data.append({
+                                    "วันที่": formatted_date_for_sheet,
+                                    "สาขา (จาก CSV)": branch,
+                                    "รหัสสินค้า": match['code'],
+                                    "ชื่อเมนู": match['name'],
+                                    "ราคา": db_price,
+                                    "จำนวน": int(final_qty),
+                                    "ยอด (฿)": final_total,
+                                    "ตรวจสอบ": status
+                                })
                         else:
-                            # กรณี AI อ่านเลขลำดับผิด หรือไม่มีลำดับนี้ใน Master File
+                            # กรณีไม่พบรหัสสินค้านี้ในระบบ Database
                             temp_data.append({
                                 "วันที่": formatted_date_for_sheet,
                                 "สาขา (จาก CSV)": branch,
-                                "รหัสสินค้า": "-",
-                                "ชื่อเมนู": f"⚠️ ไม่พบเมนูลำดับที่ {line}",
-                                "ราคา": 0,
-                                "จำนวน": 0,
-                                "ยอด (฿)": total_amount,
+                                "รหัสสินค้า": extracted_code,
+                                "ชื่อเมนู": "⚠️ รหัสไม่ตรง Database",
+                                "ราคา": ai_unit_price,
+                                "จำนวน": ai_qty,
+                                "ยอด (฿)": ai_total,
                                 "ตรวจสอบ": "❌ ขัดข้อง"
                             })
             except Exception as e:
