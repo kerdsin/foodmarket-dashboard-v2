@@ -44,18 +44,24 @@ def clean_for_sheets(value):
 # --- 🧠 3. สมองกล AI ---
 def analyze_receipts(images, model_version):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    
-    # ⚠️ ใช้งาน Gemini 2.5 เต็มรูปแบบ
     api_model_name = 'gemini-2.5-flash' if model_version == "Flash (เน้นแม่นยำ)" else 'gemini-2.5-flash-lite'
     model = genai.GenerativeModel(api_model_name)
-    
     prompt = f"""
     Find VID number in the receipt header. Valid VIDs: {list(BRANCH_CONFIG.keys())}
     Extract for each item line: Line_Number (number before item name), Item_Code, Qty, and Unit_Price.
     Return ONLY JSON list: [{{"vid": "str", "line_no": "str", "code": "str", "qty": int, "unit_price": float}}]
     """
-    response = model.generate_content([prompt] + images)
-    return json.loads(response.text.replace("```json", "").replace("```", "").strip())
+    for attempt in range(3):
+        try:
+            response = model.generate_content([prompt] + images)
+            text = response.text.strip()
+            if not text:
+                raise ValueError("AI returned empty response")
+            return json.loads(text.replace("```json", "").replace("```", "").strip())
+        except (ValueError, json.JSONDecodeError) as e:
+            if attempt == 2:
+                raise ValueError(f"AI ไม่สามารถอ่านสลิปได้ ({e}) — ลองใช้โหมดอื่นหรืออัปโหลดรูปใหม่")
+            import time; time.sleep(2)
 
 # --- 📱 4. หน้าจอผู้ใช้งาน (Mobile Web App) ---
 st.set_page_config(page_title="Power One One-Stop", page_icon="⚡", layout="wide")
@@ -102,15 +108,17 @@ if st.button("🚀 สแกนและตรวจสอบข้อมูล"
                         match = next((item for item in branch_items.values() if item.get('code') == d['code']), None)
                     
                     if d.get('qty', 0) > 0:
-                        is_valid = match and match['code'] == d['code'] and match['price'] == d['unit_price']
+                        price = match['price'] if match else float(d.get('unit_price', 0))
+                        qty = int(d.get('qty', 0))
+                        is_valid = match is not None
                         temp_data.append({
                             "วันที่": formatted_date_for_sheet,
                             "สาขา (จาก CSV)": branch,
                             "รหัสสินค้า": d.get('code', ''),
                             "ชื่อเมนู": match['name'] if match else "⚠️ รหัสไม่ตรง",
-                            "ราคา": float(d.get('unit_price', 0)),
-                            "จำนวน": int(d.get('qty', 0)),
-                            "ยอด (฿)": float(d.get('qty', 0) * d.get('unit_price', 0)),
+                            "ราคา": price,
+                            "จำนวน": qty,
+                            "ยอด (฿)": float(price * qty),
                             "ตรวจสอบ": "✅ ผ่าน" if is_valid else "❌ ขัดข้อง"
                         })
             except Exception as e:
