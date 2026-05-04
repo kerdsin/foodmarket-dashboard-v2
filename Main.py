@@ -42,7 +42,6 @@ def clean_for_sheets(value):
     return value
 
 # --- 🧠 3. สมองกล AI ---
-def # --- 🧠 3. สมองกล AI ---
 def analyze_receipts(images, model_version):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     
