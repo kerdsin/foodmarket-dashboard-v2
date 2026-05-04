@@ -40,7 +40,7 @@ def clean_for_sheets(value):
     if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
         return ""
     return value
-
+    
 # --- 🧠 3. สมองกล AI ---
 def analyze_receipts(images, model_version):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
@@ -49,14 +49,24 @@ def analyze_receipts(images, model_version):
     api_model_name = 'gemini-2.5-flash' if model_version == "Flash (เน้นแม่นยำ)" else 'gemini-2.5-flash-lite'
     model = genai.GenerativeModel(api_model_name)
     
-    # ⚠️ อัปเดตคำสั่ง (Prompt) ให้ AI ล็อคเป้าคอลัมน์ ราคา และ จำนวน ให้แม่นยำ ห้ามสลับกัน
+    # ⚠️ ท่าไม้ตาย: ยกตัวอย่างให้ AI ดูเลยว่าต้องดึงยังไง จะได้ไม่สลับ ราคา กับ จำนวน อีก
     prompt = f"""
     Find VID number in the receipt header. Valid VIDs: {list(BRANCH_CONFIG.keys())}
-    Carefully read the receipt lines. The item details are usually in two rows:
-    Row 1: Line_Number. Item_Name
-    Row 2: Item_Code Unit_Price Qty Total_Amount
-    WARNING: The first number after Item_Code is the Unit_Price. The second number is the Qty (Quantity). Do NOT confuse them.
     Extract for each item line: Line_Number, Item_Code, Qty, and Unit_Price.
+    
+    The receipt lines ALWAYS follow this exact structure in 2 rows:
+    Row 1: [Line Number]. [Item Name]
+    Row 2: [Item Code]   [Unit Price]   [Quantity]   [Total Amount]
+    
+    Example:
+    1. ข้าวมันไก่ต้ม
+    FMFC033-001  60  77 4,620.00
+    -> Your extraction: line_no: "1", code: "FMFC033-001", unit_price: 60.0, qty: 77
+    
+    2. ข้าวมันไก่ทอด
+    FMFC033-002  60  33 1,980.00
+    -> Your extraction: line_no: "2", code: "FMFC033-002", unit_price: 60.0, qty: 33
+    
     Return ONLY JSON list: [{{"vid": "str", "line_no": "str", "code": "str", "qty": int, "unit_price": float}}]
     """
     response = model.generate_content([prompt] + images)
