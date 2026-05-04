@@ -42,15 +42,28 @@ def clean_for_sheets(value):
     return value
 
 # --- 🧠 3. สมองกล AI ---
+def # --- 🧠 3. สมองกล AI ---
 def analyze_receipts(images, model_version):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    
+    # ⚠️ ใช้งาน Gemini 2.5 เต็มรูปแบบ
     api_model_name = 'gemini-2.5-flash' if model_version == "Flash (เน้นแม่นยำ)" else 'gemini-2.5-flash-lite'
     model = genai.GenerativeModel(api_model_name)
+    
+    # ⚠️ อัปเดตคำสั่ง (Prompt) ให้ AI ล็อคเป้าคอลัมน์ ราคา และ จำนวน ให้แม่นยำ ห้ามสลับกัน
     prompt = f"""
     Find VID number in the receipt header. Valid VIDs: {list(BRANCH_CONFIG.keys())}
-    Extract for each item line: Line_Number (number before item name), Item_Code, Qty, and Unit_Price.
+    Carefully read the receipt lines. The item details are usually in two rows:
+    Row 1: Line_Number. Item_Name
+    Row 2: Item_Code Unit_Price Qty Total_Amount
+    WARNING: The first number after Item_Code is the Unit_Price. The second number is the Qty (Quantity). Do NOT confuse them.
+    Extract for each item line: Line_Number, Item_Code, Qty, and Unit_Price.
     Return ONLY JSON list: [{{"vid": "str", "line_no": "str", "code": "str", "qty": int, "unit_price": float}}]
     """
+    response = model.generate_content([prompt] + images)
+    return json.loads(response.text.replace("```json", "").replace("
+```", "").strip())
+
     for attempt in range(3):
         try:
             response = model.generate_content([prompt] + images)
