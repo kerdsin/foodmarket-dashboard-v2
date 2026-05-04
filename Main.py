@@ -61,8 +61,7 @@ def analyze_receipts(images, model_version):
     Return ONLY JSON list: [{{"vid": "str", "line_no": "str", "code": "str", "qty": int, "unit_price": float}}]
     """
     response = model.generate_content([prompt] + images)
-    return json.loads(response.text.replace("```json", "").replace("
-```", "").strip())
+    return json.loads(response.text.replace("```json", "").replace("```", "").strip())
 
     for attempt in range(3):
         try:
