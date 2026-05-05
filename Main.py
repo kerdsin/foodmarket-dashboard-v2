@@ -74,7 +74,7 @@ def analyze_receipts(images, model_version):
             import time; time.sleep(2)
 
 # ============================================================
-# UI
+# PAGE CONFIG & STYLES
 # ============================================================
 st.set_page_config(page_title="Power One One-Stop", page_icon="⚡", layout="wide")
 
@@ -82,53 +82,45 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap');
 
-html, body, [class*="css"], .stApp, .stMarkdown, .stButton,
-input, textarea, select, label, p, h1, h2, h3, h4, span, div {
+html, body, [class*="css"] {
     font-family: 'Sarabun', sans-serif !important;
 }
 
 /* ── App background ── */
-.stApp { background: #0d1117; }
-.block-container { padding: 1.5rem 1.5rem 3rem !important; max-width: 960px; }
+.stApp {
+    background-color: #F1F5F9;
+}
+.block-container {
+    padding: 1.5rem 1.5rem 3rem !important;
+    max-width: 900px;
+}
 
 /* ── Hero header ── */
 .hero {
-    background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+    background: linear-gradient(135deg, #1E3A5F 0%, #2563EB 100%);
     border-radius: 16px;
-    padding: 28px 28px 22px;
-    margin-bottom: 28px;
-    border: 1px solid rgba(255,255,255,0.07);
-    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
-    position: relative;
-    overflow: hidden;
-}
-.hero::before {
-    content: '';
-    position: absolute;
-    top: -40px; right: -40px;
-    width: 200px; height: 200px;
-    background: radial-gradient(circle, rgba(240,175,0,0.12) 0%, transparent 70%);
-    pointer-events: none;
+    padding: 24px 28px 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 24px rgba(37,99,235,0.25);
 }
 .hero-title {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 800;
-    color: #f1f5f9;
+    color: #FFFFFF;
     margin: 0 0 4px 0;
-    letter-spacing: 0.3px;
 }
 .hero-sub {
     font-size: 13px;
-    color: #94a3b8;
-    margin: 0 0 12px 0;
+    color: rgba(255,255,255,0.75);
+    margin: 0 0 10px 0;
 }
 .hero-badge {
     display: inline-block;
-    background: linear-gradient(90deg, #f0af00, #e07800);
-    color: #000;
+    background: #FCD34D;
+    color: #1E3A5F;
     font-size: 10px;
     font-weight: 800;
-    padding: 3px 12px;
+    padding: 2px 10px;
     border-radius: 20px;
     letter-spacing: 1.5px;
     text-transform: uppercase;
@@ -136,26 +128,26 @@ input, textarea, select, label, p, h1, h2, h3, h4, span, div {
 
 /* ── Section cards ── */
 .card {
-    background: #161b22;
-    border: 1px solid #21262d;
-    border-radius: 12px;
-    padding: 20px 22px 16px;
-    margin-bottom: 18px;
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
+    padding: 18px 22px 14px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
 }
 .card-header {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 14px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #21262d;
+    margin-bottom: 6px;
 }
 .step-num {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    background: linear-gradient(135deg, #2563EB, #1D4ED8);
     color: #fff;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
-    width: 26px; height: 26px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     display: inline-flex;
     align-items: center;
@@ -163,131 +155,102 @@ input, textarea, select, label, p, h1, h2, h3, h4, span, div {
     flex-shrink: 0;
 }
 .card-title {
-    color: #e2e8f0;
+    color: #1E293B;
     font-size: 15px;
-    font-weight: 600;
+    font-weight: 700;
     margin: 0;
 }
 
 /* ── Date info banner ── */
 .info-banner {
-    background: rgba(37,99,235,0.12);
-    border: 1px solid rgba(37,99,235,0.35);
-    border-left: 3px solid #3b82f6;
+    background: #EFF6FF;
+    border: 1px solid #BFDBFE;
+    border-left: 4px solid #3B82F6;
     border-radius: 8px;
     padding: 10px 14px;
-    color: #93c5fd;
-    font-size: 13.5px;
-    margin-top: 4px;
+    color: #1E40AF;
+    font-size: 14px;
+    margin-top: 12px;
 }
 
-/* ── Scan button ── */
+/* ── Primary button (scan) ── */
 .stButton > button[kind="primary"] {
-    background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
+    background: linear-gradient(135deg, #2563EB, #1D4ED8) !important;
     color: #fff !important;
     border: none !important;
     border-radius: 10px !important;
     font-size: 15px !important;
     font-weight: 600 !important;
-    padding: 0.6rem 1.2rem !important;
-    box-shadow: 0 4px 18px rgba(29,78,216,0.45) !important;
-    letter-spacing: 0.2px !important;
-    transition: all 0.18s ease !important;
+    padding: 0.65rem 1.2rem !important;
+    box-shadow: 0 4px 14px rgba(37,99,235,0.35) !important;
+    font-family: 'Sarabun', sans-serif !important;
 }
 .stButton > button[kind="primary"]:hover {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
-    box-shadow: 0 6px 24px rgba(37,99,235,0.55) !important;
+    background: linear-gradient(135deg, #1D4ED8, #1E40AF) !important;
+    box-shadow: 0 6px 20px rgba(37,99,235,0.45) !important;
     transform: translateY(-1px) !important;
 }
 
-/* ── Save button (wraps last primary button) ── */
+/* ── Save button (green) ── */
 .save-wrap .stButton > button[kind="primary"] {
-    background: linear-gradient(135deg, #047857, #065f46) !important;
-    box-shadow: 0 4px 18px rgba(4,120,87,0.45) !important;
+    background: linear-gradient(135deg, #059669, #047857) !important;
+    box-shadow: 0 4px 14px rgba(5,150,105,0.35) !important;
 }
 .save-wrap .stButton > button[kind="primary"]:hover {
-    background: linear-gradient(135deg, #059669, #047857) !important;
-    box-shadow: 0 6px 24px rgba(5,150,105,0.55) !important;
+    background: linear-gradient(135deg, #047857, #065F46) !important;
+    box-shadow: 0 6px 20px rgba(5,150,105,0.45) !important;
 }
 
-/* ── Summary section ── */
-.summary-card {
-    background: linear-gradient(135deg, #0a2818, #0f3d24);
-    border: 1px solid rgba(16,185,129,0.25);
+/* ── Summary card ── */
+.summary-box {
+    background: #F0FDF4;
+    border: 1px solid #BBF7D0;
     border-radius: 12px;
-    padding: 18px 22px;
-    margin: 18px 0 12px;
+    padding: 16px 20px 12px;
+    margin: 16px 0 12px;
 }
-.summary-card-title {
-    color: #6ee7b7;
-    font-size: 15px;
-    font-weight: 600;
-    margin: 0 0 14px 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.summary-box-title {
+    color: #166534;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 12px;
 }
 
 /* ── Metric box ── */
 [data-testid="metric-container"] {
-    background: linear-gradient(135deg, #1e2d40, #1e3a5f) !important;
-    border: 1px solid rgba(251,191,36,0.3) !important;
+    background: linear-gradient(135deg, #EFF6FF, #DBEAFE) !important;
+    border: 1px solid #BFDBFE !important;
     border-radius: 12px !important;
     padding: 14px 20px !important;
 }
 [data-testid="stMetricValue"] {
-    color: #fbbf24 !important;
-    font-size: 30px !important;
+    color: #1E40AF !important;
+    font-size: 28px !important;
     font-weight: 800 !important;
 }
 [data-testid="stMetricLabel"] {
-    color: #93c5fd !important;
+    color: #3B82F6 !important;
     font-size: 13px !important;
-    font-weight: 500 !important;
+    font-weight: 600 !important;
 }
 
-/* ── Inputs & radio ── */
-[data-testid="stDateInput"] > div > div > input {
-    background: #21262d !important;
-    border: 1px solid #30363d !important;
-    color: #e2e8f0 !important;
-    border-radius: 8px !important;
-}
-[data-testid="stRadio"] label {
-    color: #cbd5e1 !important;
-    font-size: 14px !important;
-}
-[data-testid="stRadio"] [data-testid="stMarkdownContainer"] p {
-    color: #cbd5e1 !important;
-}
+/* ── Divider ── */
+hr { border-color: #E2E8F0 !important; margin: 16px 0 !important; }
 
-/* ── File uploader ── */
-[data-testid="stFileUploader"] section {
-    background: #161b22 !important;
-    border: 2px dashed #30363d !important;
-    border-radius: 10px !important;
-}
-[data-testid="stFileUploader"] section:hover {
-    border-color: #3b82f6 !important;
-}
+/* ── Alerts ── */
+[data-testid="stAlert"] { border-radius: 10px !important; font-size: 14px !important; }
 
 /* ── Dataframe ── */
 [data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden; }
 
-/* ── Alert messages ── */
-[data-testid="stAlert"] { border-radius: 10px !important; font-size: 14px !important; }
-
-/* ── Divider ── */
-hr { border-color: #21262d !important; margin: 18px 0 !important; }
-
-/* ── Hide default Streamlit branding ── */
+/* ── Hide Streamlit branding ── */
 #MainMenu { visibility: hidden; }
 footer { visibility: hidden; }
 header { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Hero header ──────────────────────────────────────────────
+# ── Hero ─────────────────────────────────────────────────────
 st.markdown("""
 <div class="hero">
     <div class="hero-title">⚡ Power One One-Stop</div>
@@ -303,7 +266,7 @@ except Exception:
     st.error("ไม่พบไฟล์ item_master.json")
     master_data = {}
 
-# ── Section 1: Settings ──────────────────────────────────────
+# ── Step 1: Settings ─────────────────────────────────────────
 st.markdown("""
 <div class="card">
     <div class="card-header">
@@ -313,24 +276,23 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-with st.container():
-    col1, col2 = st.columns(2)
-    with col1:
-        selected_date = st.date_input("วันที่ยอดขาย", datetime.date.today())
-        formatted_date_for_sheet = selected_date.strftime("%Y-%m-%d")
-    with col2:
-        ai_choice = st.radio("ขุมพลัง AI", ["Flash (เน้นแม่นยำ)", "Flash Lite (เน้นความเร็ว)"])
+col1, col2 = st.columns(2)
+with col1:
+    selected_date = st.date_input("วันที่ยอดขาย", datetime.date.today())
+    formatted_date_for_sheet = selected_date.strftime("%Y-%m-%d")
+with col2:
+    ai_choice = st.radio("ขุมพลัง AI", ["Flash (เน้นแม่นยำ)", "Flash Lite (เน้นความเร็ว)"])
 
-    st.markdown(f"""
-    <div class="info-banner">
-        📅 ล็อคข้อมูลทั้งหมดเป็นวันที่ <strong>{selected_date.strftime('%d/%m/%Y')}</strong>
-        &nbsp;·&nbsp; วันอื่นใน CSV จะถูกตัดออก
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown(f"""
+<div class="info-banner">
+    📅 ล็อคข้อมูลทั้งหมดเป็นวันที่ <strong>{selected_date.strftime('%d/%m/%Y')}</strong>
+    &nbsp;·&nbsp; วันอื่นใน CSV จะถูกตัดออก
+</div>
+""", unsafe_allow_html=True)
 
-st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
 
-# ── Section 2: Upload ────────────────────────────────────────
+# ── Step 2: Upload ───────────────────────────────────────────
 st.markdown("""
 <div class="card">
     <div class="card-header">
@@ -462,7 +424,7 @@ if st.button("🔍  สแกนและตรวจสอบข้อมูล
     elif csv_file or files:
         st.warning(f"ไม่พบข้อมูลของวันที่ {selected_date.strftime('%d/%m/%Y')}")
 
-# ── Section 3: Review & Save ─────────────────────────────────
+# ── Step 3: Review & Save ────────────────────────────────────
 if 'preview_data' in st.session_state and st.session_state['preview_data']:
 
     st.markdown("""
@@ -477,7 +439,7 @@ if 'preview_data' in st.session_state and st.session_state['preview_data']:
     df_preview = pd.DataFrame(st.session_state['preview_data'])
     df_edited = st.data_editor(df_preview, use_container_width=True)
 
-    # ── Summary ──────────────────────────────────────────────
+    # Summary
     df_summary = (
         df_edited
         .groupby("สาขา (จาก CSV)", as_index=False)
@@ -488,12 +450,12 @@ if 'preview_data' in st.session_state and st.session_state['preview_data']:
     df_summary["ยอดรวม (฿)"] = df_summary["ยอดรวม (฿)"].map("{:,.2f}".format)
     total_all = df_edited["ยอด (฿)"].sum()
 
-    st.markdown('<div class="summary-card"><div class="summary-card-title">📊 สรุปยอดขายตามสาขา</div>', unsafe_allow_html=True)
+    st.markdown('<div class="summary-box"><div class="summary-box-title">📊 สรุปยอดขายตามสาขา</div>', unsafe_allow_html=True)
     st.dataframe(df_summary, use_container_width=True, hide_index=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.metric("ยอดรวมทั้งหมด", f"฿{total_all:,.2f}")
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
 
     st.markdown('<div class="save-wrap">', unsafe_allow_html=True)
     if st.button("✅  ยืนยันและบันทึกลง Google Sheets", type="primary", use_container_width=True):
