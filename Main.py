@@ -475,3 +475,68 @@ if 'preview_data' in st.session_state and st.session_state['preview_data']:
         except Exception as e:
             st.error(f"ไม่สามารถบันทึกลงชีตได้: {e}")
     st.markdown('</div>', unsafe_allow_html=True)
+
+# ── Section 4: Delete wrong upload ──────────────────────────
+st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
+
+with st.expander("🗑️  แก้ไขข้อมูลที่อัปโหลดผิด — ลบตามวันที่"):
+    st.markdown("""
+    <div style='color:#6B7280;font-size:13px;margin-bottom:16px;'>
+    เลือกวันที่ที่ต้องการลบออกจาก Google Sheets — ระบบแสดง preview ก่อนลบจริง
+    </div>
+    """, unsafe_allow_html=True)
+
+    del_date = st.date_input("วันที่ที่ต้องการลบ", datetime.date.today(), key="del_date")
+    del_date_str = del_date.strftime("%Y-%m-%d")
+
+    if st.button("🔎  ดูข้อมูลที่จะถูกลบ", key="preview_delete"):
+        try:
+            sheet = get_google_sheet()
+            all_rows = sheet.get_all_values()
+
+            if len(all_rows) < 2:
+                st.info("ไม่มีข้อมูลในชีท")
+            else:
+                header = all_rows[0]
+                data_rows = all_rows[1:]
+                matched, matched_indices = [], []
+                for i, row in enumerate(data_rows):
+                    if row and row[0] == del_date_str:
+                        padded = row + [''] * max(0, len(header) - len(row))
+                        matched.append(padded[:len(header)])
+                        matched_indices.append(i + 2)  # 1-based, header=row1
+
+                if matched:
+                    st.session_state['delete_rows_indices'] = matched_indices
+                    st.session_state['delete_date_str'] = del_date_str
+                    df_del = pd.DataFrame(matched, columns=header)
+                    st.warning(f"พบ **{len(matched)} แถว** ของวันที่ {del_date.strftime('%d/%m/%Y')} — ตรวจสอบก่อนกดลบ")
+                    st.dataframe(df_del, use_container_width=True, hide_index=True)
+                else:
+                    st.info(f"ไม่พบข้อมูลของวันที่ {del_date.strftime('%d/%m/%Y')} ในชีท")
+                    st.session_state.pop('delete_rows_indices', None)
+        except Exception as e:
+            st.error(f"ดึงข้อมูลไม่ได้: {e}")
+
+    # ปุ่มยืนยัน — แสดงเมื่อมี preview
+    indices = st.session_state.get('delete_rows_indices', [])
+    if indices and st.session_state.get('delete_date_str') == del_date_str:
+        n = len(indices)
+        st.markdown(f"<p style='color:#DC2626;font-weight:600;font-size:14px;margin-top:12px;'>⚠️ การลบ {n} แถวนี้ไม่สามารถย้อนกลับได้</p>", unsafe_allow_html=True)
+        col_ok, col_no = st.columns(2)
+        with col_ok:
+            if st.button(f"🗑️  ยืนยันลบ {n} แถว", type="primary", use_container_width=True, key="confirm_delete"):
+                try:
+                    sheet = get_google_sheet()
+                    for row_idx in sorted(indices, reverse=True):
+                        sheet.delete_rows(row_idx)
+                    st.success(f"ลบ {n} แถวของวันที่ {del_date.strftime('%d/%m/%Y')} สำเร็จ")
+                    st.session_state.pop('delete_rows_indices', None)
+                    st.session_state.pop('delete_date_str', None)
+                except Exception as e:
+                    st.error(f"ลบไม่สำเร็จ: {e}")
+        with col_no:
+            if st.button("ยกเลิก", use_container_width=True, key="cancel_delete"):
+                st.session_state.pop('delete_rows_indices', None)
+                st.session_state.pop('delete_date_str', None)
+                st.rerun()
