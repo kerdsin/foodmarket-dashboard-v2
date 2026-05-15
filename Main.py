@@ -82,17 +82,75 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap');
 
+/* ── Force light mode on all elements (fixes iOS dark mode) ── */
+:root { color-scheme: light; }
+
 html, body, [class*="css"] {
     font-family: 'Sarabun', sans-serif !important;
+    color-scheme: light;
 }
 
 /* ── App background ── */
 .stApp {
-    background-color: #F1F5F9;
+    background-color: #F1F5F9 !important;
 }
 .block-container {
     padding: 1.5rem 1.5rem 3rem !important;
     max-width: 900px;
+    background-color: #F1F5F9 !important;
+}
+
+/* ── Force ALL text dark so it shows on light background ── */
+p, span, label, div, li, td, th {
+    color: #1E293B !important;
+}
+
+/* ── Labels above inputs ── */
+[data-testid="stDateInput"] label,
+[data-testid="stRadio"] label,
+[data-testid="stSelectbox"] label,
+.stRadio > label,
+.stDateInput > label,
+.stSelectbox > label,
+.stFileUploader > label {
+    color: #1E293B !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+/* ── Radio option text ── */
+[data-testid="stRadio"] label span,
+[data-testid="stRadio"] p {
+    color: #1E293B !important;
+    font-size: 14px !important;
+}
+
+/* ── Force inputs to light mode ── */
+input, select, textarea {
+    color-scheme: light !important;
+    background-color: #FFFFFF !important;
+    color: #1E293B !important;
+    border: 1px solid #CBD5E1 !important;
+    border-radius: 8px !important;
+}
+
+/* ── Date input wrapper ── */
+[data-testid="stDateInput"] > div > div {
+    background-color: #FFFFFF !important;
+    border: 1px solid #CBD5E1 !important;
+    border-radius: 8px !important;
+}
+[data-testid="stDateInput"] input {
+    color: #1E293B !important;
+    background-color: #FFFFFF !important;
+}
+
+/* ── Selectbox ── */
+[data-testid="stSelectbox"] > div > div {
+    background-color: #FFFFFF !important;
+    border: 1px solid #CBD5E1 !important;
+    border-radius: 8px !important;
+    color: #1E293B !important;
 }
 
 /* ── Hero header ── */
@@ -106,18 +164,18 @@ html, body, [class*="css"] {
 .hero-title {
     font-size: 22px;
     font-weight: 800;
-    color: #FFFFFF;
+    color: #FFFFFF !important;
     margin: 0 0 4px 0;
 }
 .hero-sub {
     font-size: 13px;
-    color: rgba(255,255,255,0.75);
+    color: rgba(255,255,255,0.85) !important;
     margin: 0 0 10px 0;
 }
 .hero-badge {
     display: inline-block;
     background: #FCD34D;
-    color: #1E3A5F;
+    color: #1E3A5F !important;
     font-size: 10px;
     font-weight: 800;
     padding: 2px 10px;
@@ -143,7 +201,7 @@ html, body, [class*="css"] {
 }
 .step-num {
     background: linear-gradient(135deg, #2563EB, #1D4ED8);
-    color: #fff;
+    color: #fff !important;
     font-size: 12px;
     font-weight: 700;
     width: 28px;
@@ -155,7 +213,7 @@ html, body, [class*="css"] {
     flex-shrink: 0;
 }
 .card-title {
-    color: #1E293B;
+    color: #1E293B !important;
     font-size: 15px;
     font-weight: 700;
     margin: 0;
@@ -168,10 +226,11 @@ html, body, [class*="css"] {
     border-left: 4px solid #3B82F6;
     border-radius: 8px;
     padding: 10px 14px;
-    color: #1E40AF;
+    color: #1E40AF !important;
     font-size: 14px;
     margin-top: 12px;
 }
+.info-banner strong { color: #1E40AF !important; }
 
 /* ── Primary button (scan) ── */
 .stButton > button[kind="primary"] {
@@ -201,6 +260,16 @@ html, body, [class*="css"] {
     box-shadow: 0 6px 20px rgba(5,150,105,0.45) !important;
 }
 
+/* ── Secondary button (cancel) ── */
+.stButton > button:not([kind="primary"]) {
+    color: #374151 !important;
+    background: #F9FAFB !important;
+    border: 1px solid #D1D5DB !important;
+    border-radius: 10px !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+}
+
 /* ── Summary card ── */
 .summary-box {
     background: #F0FDF4;
@@ -210,7 +279,7 @@ html, body, [class*="css"] {
     margin: 16px 0 12px;
 }
 .summary-box-title {
-    color: #166534;
+    color: #166534 !important;
     font-size: 14px;
     font-weight: 700;
     margin-bottom: 12px;
@@ -234,14 +303,25 @@ html, body, [class*="css"] {
     font-weight: 600 !important;
 }
 
+/* ── Expander ── */
+[data-testid="stExpander"] summary {
+    color: #374151 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
 /* ── Divider ── */
 hr { border-color: #E2E8F0 !important; margin: 16px 0 !important; }
 
 /* ── Alerts ── */
 [data-testid="stAlert"] { border-radius: 10px !important; font-size: 14px !important; }
+[data-testid="stAlert"] p { color: inherit !important; }
 
 /* ── Dataframe ── */
 [data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden; }
+
+/* ── Spinner text ── */
+[data-testid="stSpinner"] p { color: #374151 !important; }
 
 /* ── Hide Streamlit branding ── */
 #MainMenu { visibility: hidden; }
