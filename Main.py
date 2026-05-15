@@ -317,6 +317,33 @@ hr { border-color: #E2E8F0 !important; margin: 16px 0 !important; }
 [data-testid="stAlert"] { border-radius: 10px !important; font-size: 14px !important; }
 [data-testid="stAlert"] p { color: inherit !important; }
 
+/* ── File uploader — force light background ── */
+[data-testid="stFileUploader"],
+[data-testid="stFileUploader"] > div,
+[data-testid="stFileUploader"] section,
+[data-testid="stFileUploader"] section > div,
+[data-testid="stFileUploaderDropzone"] {
+    background-color: #FFFFFF !important;
+    color-scheme: light !important;
+}
+[data-testid="stFileUploader"] section {
+    border: 2px dashed #CBD5E1 !important;
+    border-radius: 10px !important;
+}
+[data-testid="stFileUploader"] small,
+[data-testid="stFileUploader"] span,
+[data-testid="stFileUploader"] p {
+    color: #64748B !important;
+}
+/* Upload button inside file uploader */
+[data-testid="stFileUploader"] button,
+[data-testid="baseButton-secondary"] {
+    background-color: #F1F5F9 !important;
+    color: #1E293B !important;
+    border: 1px solid #CBD5E1 !important;
+    border-radius: 8px !important;
+}
+
 /* ── Dataframe ── */
 [data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden; }
 
